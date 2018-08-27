@@ -33,32 +33,38 @@
 #define FIFO_CTL       0x38 // set data queue (FIFO) mode
 #define FIFO_STATUS    0x39 // data queue status
 
+// slave select pin
+int slave_select = 10;
+
+// x y z axis measurements
+int16_t xRaw, yRaw, zRaw = 0;
+
 // --------------------------------------------------------- SPI functions ------------------------------------------------------
 
 void writeTo(byte reg, byte val)
 {
   // slave select low
-  digitalWrite(SS, LOW);
+  digitalWrite(slave_select, LOW);
   // transfer register to write to
   SPI.transfer(reg);
   // write val
   SPI.transfer(val);
   // slave select high
-  digitalWrite(SS, HIGH);
+  digitalWrite(slave_select, HIGH);
 }
 
-byte readByte(byte reg)
+byte read_reg(byte reg)
 {
   // read: set msb of reg address
   reg = reg | 0b10000000;
   // slave select low
-  digitalWrite(SS, LOW);
+  digitalWrite(slave_select, LOW);
   // transfer reg address to be read from
   SPI.transfer(reg);
   // read byte
   byte returnValue = SPI.transfer(0x00);
   // slave select high
-  digitalWrite(SS, HIGH);
+  digitalWrite(slave_select, HIGH);
   return returnValue;
 }
 
@@ -71,7 +77,7 @@ int read_two_reg(byte reg)
   regAddress = 0b01000000 | regAddress;
 
   // slave select low
-  digitalWrite(SS, LOW);
+  digitalWrite(slave_select, LOW);
   // transfer register address to be read
   SPI.transfer(regAddress);
   // read bytes, shift msb left 8
@@ -85,10 +91,8 @@ int read_two_reg(byte reg)
 // ------------------------------------------------------------- MAIN --------------------------------------------------------------
 void setup()
 {
-  // slave select pin
-  int SS = 10;
   // set output mode for slave select pin
-  pinMode(SS, OUTPUT);
+  pinMode(slave_select, OUTPUT);
   digitalWrite(SS, HIGH);
 
   // initialize SPI bus and set mode (clock polarity 1, clock phase 1)
@@ -97,12 +101,25 @@ void setup()
 
   // initialize serial monitor
   Serial.begin(9600);
+
+  // put adxl345 into measurement mode
+  writeTo(POWER_CTL, 0b00001000);
+  // set range to +/-4G
+  writeTo(DATA_FORMAT, 0b00000001);
 }
 
 void loop()
 {
+  delay(40);
+  xRaw = read_two_reg(DATA_X_LSB);
+  yRaw = read_two_reg(DATA_Y_LSB);
+  zRaw = read_two_reg(DATA_Z_LSB);
   
-
+  Serial.print(xRaw);
+  Serial.print(" ");
+  Serial.print(yRaw);
+  Serial.print(" ");
+  Serial.println(zRaw);
 }
 
 
