@@ -1,8 +1,5 @@
 #include <SPI.h>
 
-// slave select pin
-int SS = 10;
-
 // define register numbers from data sheet
 
 #define DEV_ID         0x00 // device address not needed for SPI
@@ -40,24 +37,95 @@ int SS = 10;
 
 void writeTo(byte reg, byte val)
 {
+  // slave select low
   digitalWrite(SS, LOW);
+  // transfer register to write to
   SPI.transfer(reg);
+  // write val
   SPI.transfer(val);
+  // slave select high
   digitalWrite(SS, HIGH);
 }
 
+byte readByte(byte reg)
+{
+  // read: set msb of reg address
+  reg = reg | 0b10000000;
+  // slave select low
+  digitalWrite(SS, LOW);
+  // transfer reg address to be read from
+  SPI.transfer(reg);
+  // read byte
+  byte returnValue = SPI.transfer(0x00);
+  // slave select high
+  digitalWrite(SS, HIGH);
+  return returnValue;
+}
+
+// a function allowing for consecutive reads from two sequential registers
+int read_two_reg(byte reg)
+{
+  // read: set msb of reg address
+  byte regAddress = 0b10000000 | reg;
+  // multi-byte read: set bit 6
+  regAddress = 0b01000000 | regAddress;
+
+  // slave select low
+  digitalWrite(SS, LOW);
+  // transfer register address to be read
+  SPI.transfer(regAddress);
+  // read bytes, shift msb left 8
+  int returnValue = SPI.transfer(0x00) | SPI.transfer(0x00) << 8;
+  // slave select high
+  digitalWrite(SS, HIGH);
+  return returnValue;
+}
+
+
+// ------------------------------------------------------------- MAIN --------------------------------------------------------------
 void setup()
 {
+  // slave select pin
+  int SS = 10;
   // set output mode for slave select pin
   pinMode(SS, OUTPUT);
+  digitalWrite(SS, HIGH);
 
-  // initialize SPI bus
+  // initialize SPI bus and set mode (clock polarity 1, clock phase 1)
   SPI.begin();
+  SPI.setDataMode(SPI_MODE3);
 
+  // initialize serial monitor
+  Serial.begin(9600);
 }
 
 void loop()
 {
-
+  
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
