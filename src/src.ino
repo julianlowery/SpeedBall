@@ -38,6 +38,8 @@ int slave_select = 10;
 
 // x y z axis measurements
 int16_t xRaw, yRaw, zRaw = 0;
+float x, y, z = 0;
+float sumAcc = 0;
 
 // --------------------------------------------------------- SPI functions ------------------------------------------------------
 
@@ -111,15 +113,40 @@ void setup()
 void loop()
 {
   delay(40);
+
+  // read acceleration data from each axis
   xRaw = read_two_reg(DATA_X_LSB);
   yRaw = read_two_reg(DATA_Y_LSB);
   zRaw = read_two_reg(DATA_Z_LSB);
+
+  // convert reading to m/s^2 and account for individual axis discrepencies
+  if(xRaw >= 0)
+    x = xRaw/11.119045;
+  else
+    x = xRaw/10.50698623;
+
+  if(yRaw >= 0)
+    y = yRaw/11.119045;
+  else
+    y = yRaw/11.42514119;
+
+  if(zRaw >= 0)
+    z = zRaw/11.119045;
+  else
+    z = zRaw/14.689321;
+
+  // calculate magnitude of the sum of all axes
+  sumAcc = sqrt((x * x) + (y * y) + (z * z));
+
+  
   
   Serial.print(xRaw);
   Serial.print(" ");
   Serial.print(yRaw);
   Serial.print(" ");
-  Serial.println(zRaw);
+  Serial.print(zRaw);
+  Serial.print("   ");
+  Serial.println(sumAcc);
 }
 
 
