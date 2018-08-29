@@ -41,6 +41,18 @@ int16_t xRaw, yRaw, zRaw = 0;
 float x, y, z = 0;
 float sumAcc = 0;
 
+// array to hold acceleration values
+float acc_values[100];
+
+// counter for indexing through acc_values
+int counter = 0;
+
+// time values for speed calculation
+int t1, t2 = 0;
+
+// velocity used as final calculation
+int velocity = 0;
+
 // --------------------------------------------------------- SPI functions ------------------------------------------------------
 
 void writeTo(byte reg, byte val)
@@ -108,12 +120,12 @@ void setup()
   writeTo(POWER_CTL, 0b00001000);
   // set range to +/-4G
   writeTo(DATA_FORMAT, 0b00000001);
+  // set output data rate to 100Hz
+  writeTo(BW_RATE, 0b00001010);
 }
 
 void loop()
 {
-  delay(40);
-
   // read acceleration data from each axis
   xRaw = read_two_reg(DATA_X_LSB);
   yRaw = read_two_reg(DATA_Y_LSB);
@@ -137,16 +149,46 @@ void loop()
 
   // calculate magnitude of the sum of all axes
   sumAcc = sqrt((x * x) + (y * y) + (z * z));
+  // subtract magnitude of g
+  sumAcc -= 9.803;
 
+  // enter statement if throw is detected
+  if(sumAcc > 8)
+  {
+    // get initial time
+    t1 = millis();
+    // set counter to 0
+    counter = 0;
+    // stay in loop while ball is being accelerated
+    while(sumAcc > 4)
+    {
+      // keep acceleration values in array and increment counter
+      acc_values[counter] = sumAcc;
+      counter++;
+    }
+    // get final time
+    t2 = millis();
+    // add all acceleration values from array
+    int acc_vals_sum = 0;
+    for(int index = 0; index < counter; index++)
+    {
+      acc_vals_sum += acc_values[index];
+    }
+    // calculate average acceleration, time, and final velocity of throw
+    int acc_avg = acc_vals_sum / counter;
+    int throw_time = (t1-t2) * 1000;
+    velocity = acc_avg * throw_time;
+  }
   
-  
-  Serial.print(xRaw);
+  Serial.print(x);
   Serial.print(" ");
-  Serial.print(yRaw);
+  Serial.print(y);
   Serial.print(" ");
-  Serial.print(zRaw);
+  Serial.print(z);
   Serial.print("   ");
-  Serial.println(sumAcc);
+  Serial.print(sumAcc);
+  Serial.print("   ");
+  Serial.println(velocity);
 }
 
 
