@@ -1,9 +1,13 @@
+#include <Wire.h>
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
 
+// device address
+#define ACC_ADDRESS 0x53
+
 // define register numbers from data sheet
-#define DEV_ID         0x00 // device address not needed for SPI
+#define DEV_ID         0x00 // not needed
 #define THRESH_TAP     0x1D // threshold value for tap interupts
 #define OFFSET_X       0x1E // offset on x axis
 #define OFFSET_Y       0x1F // offset on y axis
@@ -34,15 +38,17 @@
 #define FIFO_CTL       0x38 // set data queue (FIFO) mode
 #define FIFO_STATUS    0x39 // data queue status
 
-// create RF24 object and initialize CSN, CE pins
+// create RF24 object and initialize CE, CSN pins
 RF24 radio(2, 3);
 
 // "pipe" through which the nrf24l01 modules communicate
 const byte pipe[6] = "00001";
 
 // slave select pin
-int SS_acc = 10;
 int SS_nrf = 3;
+
+// array of bytes for reading from adxl
+byte values[6];
 
 // x y z axis measurements
 int16_t xRaw, yRaw, zRaw = 0;
@@ -63,50 +69,77 @@ int throw_speed = 0;
 
 // --------------------------------------------------------- SPI functions ------------------------------------------------------
 
-void writeTo(byte reg, byte val, int slave_select)
-{
-  // slave select low
-  digitalWrite(slave_select, LOW);
-  // transfer register to write to
-  SPI.transfer(reg);
-  // write val
-  SPI.transfer(val);
-  // slave select high
-  digitalWrite(slave_select, HIGH);
-}
+//void writeTo(byte reg, byte val, int slave_select)
+//{
+//  // slave select low
+//  digitalWrite(slave_select, LOW);
+//  // transfer register to write to
+//  SPI.transfer(reg);
+//  // write val
+//  SPI.transfer(val);
+//  // slave select high
+//  digitalWrite(slave_select, HIGH);
+//}
+//
+//byte read_reg(byte reg, int slave_select)
+//{
+//  // read: set msb of reg address
+//  reg = reg | 0b10000000;
+//  // slave select low
+//  digitalWrite(slave_select, LOW);
+//  // transfer reg address to be read from
+//  SPI.transfer(reg);
+//  // read byte
+//  byte returnValue = SPI.transfer(0x00);
+//  // slave select high
+//  digitalWrite(slave_select, HIGH);
+//  return returnValue;
+//}
+//
+//// a function allowing for consecutive reads from two sequential registers
+//int read_two_reg(byte reg, int slave_select)
+//{
+//  // read: set msb of reg address
+//  byte regAddress = 0b10000000 | reg;
+//  // multi-byte read: set bit 6
+//  regAddress = 0b01000000 | regAddress;
+//
+//  // slave select low
+//  digitalWrite(slave_select, LOW);
+//  // transfer register address to be read
+//  SPI.transfer(regAddress);
+//  // read bytes, shift msb left 8
+//  int returnValue = SPI.transfer(0x00) | SPI.transfer(0x00) << 8;
+//  // slave select high
+//  digitalWrite(slave_select, HIGH);
+//  return returnValue;
+//}
 
-byte read_reg(byte reg, int slave_select)
-{
-  // read: set msb of reg address
-  reg = reg | 0b10000000;
-  // slave select low
-  digitalWrite(slave_select, LOW);
-  // transfer reg address to be read from
-  SPI.transfer(reg);
-  // read byte
-  byte returnValue = SPI.transfer(0x00);
-  // slave select high
-  digitalWrite(slave_select, HIGH);
-  return returnValue;
-}
+// -------------------------------------------------------------- I2C FUNCTIONS -------------------------------------------------------------
 
-// a function allowing for consecutive reads from two sequential registers
-int read_two_reg(byte reg, int slave_select)
+void read_six_reg(int reg, int x, int y, int z)
 {
-  // read: set msb of reg address
-  byte regAddress = 0b10000000 | reg;
-  // multi-byte read: set bit 6
-  regAddress = 0b01000000 | regAddress;
+  // begin transmission at device
+  Wire.beginTransmission(ACC_ADDRESS);
+  // queue bytes for transmission to the slave (writing desired register)
+  Wire.write(reg);
+  // end transmission with the slave and and transmit the bytes queued in write()
+  Wire.endTransmission();
 
-  // slave select low
-  digitalWrite(slave_select, LOW);
-  // transfer register address to be read
-  SPI.transfer(regAddress);
-  // read bytes, shift msb left 8
-  int returnValue = SPI.transfer(0x00) | SPI.transfer(0x00) << 8;
-  // slave select high
-  digitalWrite(slave_select, HIGH);
-  return returnValue;
+  // request bytes from the slave
+  Wire.beginTransmission(ACC_ADDRESS);
+  Wire.requestFrom(ACC_ADDRESS, 6);
+  
+  int i = 0;
+  while(Wire.available())
+  {
+    values[i] = Wire.read();
+    i++;
+  }
+
+  x = ((int)values[1]) << 8 | values[0];
+  y = ((int)values[3]) << 8 | values[2];
+  z = ((int)values[5]) << 8 | values[4];
 }
 
 
@@ -114,38 +147,58 @@ int read_two_reg(byte reg, int slave_select)
 void setup()
 {
   // set output mode for slave select pins
-  pinMode(SS_acc, OUTPUT);
   pinMode(SS_nrf, OUTPUT);
-  digitalWrite(SS_acc, HIGH);
   digitalWrite(SS_nrf, HIGH);
 
   // initialize SPI bus and set mode (clock polarity 1, clock phase 1)
   SPI.begin();
-  SPI.setDataMode(SPI_MODE3);
+  SPI.setDataMode(SPI_MODE0);
 
   // initialize serial monitor
   Serial.begin(9600);
 
+  Wire.begin();
   // put adxl345 into measurement mode
-  writeTo(POWER_CTL, 0b00001000, SS_acc);
+  Wire.beginTransmission(ACC_ADDRESS);
+  Wire.write(POWER_CTL);
+  Wire.write(8);
+  Wire.endTransmission(); 
   // set range to +/-4G
-  writeTo(DATA_FORMAT, 0b00000001, SS_acc);
+  Wire.beginTransmission(ACC_ADDRESS);
+  Wire.write(DATA_FORMAT);
+  Wire.write(0b00000001);
+  Wire.endTransmission();
   // set output data rate to 100Hz
-  writeTo(BW_RATE, 0b00001010, SS_acc);
+  Wire.beginTransmission(ACC_ADDRESS);
+  Wire.write(BW_RATE);
+  Wire.write(0b00001010);
+  Wire.endTransmission();
 
-  radio.openWritingPipe(pipe);
-  // set power output level to minimum
-  radio.setPALevel(RF24_PA_MIN);
-  // set to write
-  radio.stopListening();
+
+
+
+//  // put adxl345 into measurement mode
+//  writeTo(POWER_CTL, 0b00001000, SS_acc);
+//  // set range to +/-4G
+//  writeTo(DATA_FORMAT, 0b00000001, SS_acc);
+//  // set output data rate to 100Hz
+//  writeTo(BW_RATE, 0b00001010, SS_acc);
+
+
+
+
+//  radio.begin();
+//  radio.openWritingPipe(pipe);
+//  // set power output level to minimum
+//  radio.setPALevel(RF24_PA_MIN);
+//  // set to write
+//  radio.stopListening();
 }
 
 void loop()
 {
   // read acceleration data from each axis
-  xRaw = read_two_reg(DATA_X_LSB, SS_acc);
-  yRaw = read_two_reg(DATA_Y_LSB, SS_acc);
-  zRaw = read_two_reg(DATA_Z_LSB, SS_Acc);
+  read_six_reg(DATA_X_LSB, x, y, z);
 
   // convert reading to m/s^2 and account for individual axis discrepencies
   if(xRaw >= 0)
@@ -169,7 +222,7 @@ void loop()
   sumAcc -= 9.803;
 
   // enter statement if throw is detected
-  if(sumAcc > 8)
+  if(sumAcc > 100)
   {
     // get initial time
     t1 = millis();
@@ -196,8 +249,7 @@ void loop()
     throw_speed = acc_avg * throw_time;
 
     // send data to display module
-    // check source to see if it handles slave select. probably does (pin was passed when object was created)
-    radio.write(&throw_speed, sizeof(throw_speed);
+    radio.write(&throw_speed, sizeof(throw_speed));
   }
   
   Serial.print(x);
