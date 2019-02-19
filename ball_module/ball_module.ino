@@ -1,5 +1,5 @@
 #include <Wire.h>
-//#include <SPI.h>
+#include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
 #include "ball_module.h"
@@ -22,7 +22,7 @@ float x, y, z = 0;
 float sumAcc = 0;
 
 // array to hold acceleration values
-float acc_values[100];
+float acc_values[200];
 
 // acc_counter for indexing through acc_values
 int acc_counter = 0;
@@ -76,12 +76,12 @@ void setup()
 
 
 
-//  radio.begin();
-//  radio.openWritingPipe(pipe);
-//  // set power output level to minimum
-//  radio.setPALevel(RF24_PA_MIN);
-//  // set to write
-//  radio.stopListening();
+  radio.begin();
+  radio.openWritingPipe(pipe);
+  // set power output level to minimum
+  radio.setPALevel(RF24_PA_MIN);
+  // set to write
+  radio.stopListening();
 }
 
 void loop()
@@ -111,7 +111,7 @@ void loop()
   sumAcc -= 9.803;
 
   // enter statement if throw is detected
-  if(sumAcc > 100)
+  if(sumAcc > 20)
   {
     // get initial time
     t1 = millis();
@@ -124,7 +124,7 @@ void loop()
       acc_values[acc_counter] = sumAcc;
       acc_counter++;
 
-
+      Serial.println(acc_counter);
 
 
 
@@ -179,6 +179,7 @@ void loop()
   Serial.print(sumAcc);
   Serial.print("   ");
   Serial.println(throw_speed);
+  delay(1000);
 }
 
 
