@@ -57,7 +57,7 @@ void setup()
 */
 
   // initialize serial monitor
-//  Serial.begin(9600);
+  Serial.begin(9600);
 
   Wire.begin();
   // put adxl345 into measurement mode
@@ -139,7 +139,7 @@ void loop()
 //      Serial.println(acc_counter);
 
       // Recalculate sumAcc value
-      read_six_reg(DATA_X_LSB, x, y, z);
+      read_six_reg(DATA_X_LSB, xRaw, yRaw, zRaw);
       if(xRaw >= 0)
         x = xRaw/11.119045;
       else
@@ -171,8 +171,11 @@ void loop()
     }
     // calculate average acceleration, time, and final velocity of throw
     int acc_avg = acc_vals_sum / acc_counter;
-    double throw_time = (t1-t2) / 1000;
-    throw_speed = acc_avg * throw_time;
+    long throw_time_mil = t2-t1;
+    Serial.println(throw_time_mil);
+    double throw_time_sec = throw_time_mil / 1000;
+    Serial.println(throw_time_sec);
+    throw_speed = acc_avg * throw_time_mil;
 
     // send data to display module
 //    radio.write(&throw_speed, sizeof(throw_speed));
@@ -185,7 +188,7 @@ void loop()
     lcd.setCursor(7,0);
     lcd.print("TT");
     lcd.setCursor(10,0);
-    lcd.print(throw_time);
+    lcd.print(throw_time_mil);
     lcd.setCursor(0,1);
     lcd.print("NUM VALS:");
     lcd.setCursor(10,1);
