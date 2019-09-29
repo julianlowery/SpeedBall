@@ -34,7 +34,7 @@ int acc_counter = 0;
 unsigned long long t1, t2 = 0;
 
 // velocity used as final calculation
-int throw_speed = 0;
+double throw_speed = 0;
 bool failed = false;
 
 //LCD pins
@@ -176,6 +176,7 @@ void loop()
     double throw_time_sec = throw_time_mil / 1000;
     Serial.println(throw_time_sec);
     throw_speed = acc_avg * throw_time_mil;
+    throw_speed /= 1000;
 
     // send data to display module
 //    radio.write(&throw_speed, sizeof(throw_speed));
