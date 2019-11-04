@@ -1,16 +1,12 @@
 #include <LiquidCrystal.h>
-#include <nRF24L01.h>
-#include <RF24.h>
 #include <SPI.h>
 
-// create RF24 object and initialize CSN, CE pins
-RF24 radio(2, 3);
+#include "NRF24L01.h"
 
-// "pipe" through which the nrf24l01 modules communicate
-const byte pipe[6] = "00001";
-
-// speed to display on LCD
-int throw_speed = 0;
+#define TX_ADR_WIDTH    5   // 5 unsigned chars TX(RX) address width
+#define TX_PLOAD_WIDTH  1  // 32 unsigned chars TX payload
+unsigned char RX_ADDRESS[TX_ADR_WIDTH]  = {0x34, 0x43, 0x10, 0x10, 0x01};
+unsigned char rx_buf[TX_PLOAD_WIDTH] = {0};
 
 //LCD pins
 const int rs = A0, en = A1, d4 = A2, d5 = A3, d6 = A4, d7 = A5;
@@ -18,24 +14,20 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 void setup()
 {
-  lcd.begin(16, 2);
-  radio.begin();
-  radio.openReadingPipe(0, pipe);
-  // set power output level to minimum
-  radio.setPALevel(RF24_PA_MIN);
-  radio.startListening();
+    NRF_Init();                        // Initialize IO     
+    NRF_SetRxMode();
 }
 
 void loop()
 {
+  NRF_SetRxMode();
   lcd.setCursor(0,0);
   lcd.print("Throw Speed:");
   lcd.setCursor(0, 1);
-  lcd.print(throw_speed);
-  if(radio.available())
-  {
-    radio.read(&throw_speed, sizeof(throw_speed));
-    lcd.clear();
-  }
 
+  if(NRF_Receive(rx_buf))
+  {
+    lcd.print(rx_buf[0]);
+    rx_buf[0] = 0;
+  }
 }
