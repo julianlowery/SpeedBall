@@ -1,6 +1,6 @@
 #include <Wire.h>
 #include <SPI.h>
-#include <LiquidCrystal.h>
+//#include <LiquidCrystal.h>
 
 #include "NRF24L01.h"
 #include "ball_module.h"
@@ -31,8 +31,8 @@ double throw_speed = 0;
 bool failed = false;
 
 //LCD pins
-const int rs = A0, en = A1, d4 = A2, d5 = A3, d6 = 9, d7 = 10;
-LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+//const int rs = A0, en = A1, d4 = A2, d5 = A3, d6 = 9, d7 = 10;
+//LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 // ------------------------------------------------------------- MAIN --------------------------------------------------------------
 void setup()
@@ -40,7 +40,7 @@ void setup()
   tx_buf[0] = 0x0;
   NRF_Init();                        // Initialize IO port
   
-  lcd.begin(16, 2);
+//  lcd.begin(16, 2);
 
   /*
     initialize SPI bus and set mode (clock polarity 1, clock phase 1)
@@ -165,7 +165,7 @@ void loop()
 
     // send data to display module
     tx_buf[0] = (char) throw_speed;
-    while (1) {
+    for(int i = 0; i < 40; i++) {
       NRF_SeTxMode();
       do
       {
@@ -188,13 +188,7 @@ void loop()
     //    lcd.setCursor(10,1);
     //    lcd.print(acc_counter);
   }
-
-  //  if(!radio.write(&sumAcc, sizeof(sumAcc)))
-  //  {
-  //    failed = true;
-  //  }
   delay(100);
-
 
 
 
